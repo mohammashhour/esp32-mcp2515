@@ -173,10 +173,15 @@
 #define MCP_20MHz_33k3BPS_CFG2 (0xFF)
 #define MCP_20MHz_33k3BPS_CFG3 (0x87)
 
+#define MCP_12MHz_1000kBPS_CFG1 (0x00)
+#define MCP_12MHz_1000kBPS_CFG2 (0x88)
+#define MCP_12MHz_1000kBPS_CFG3 (0x01)
+
 enum CAN_CLOCK {
     MCP_20MHZ,
     MCP_16MHZ,
-    MCP_8MHZ
+    MCP_8MHZ,
+    MCP_12MHZ
 };
 
 enum CAN_SPEED {

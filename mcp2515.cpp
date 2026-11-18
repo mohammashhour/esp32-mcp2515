@@ -312,6 +312,99 @@ MCP2515::ERROR MCP2515::setBitrate(const CAN_SPEED canSpeed, CAN_CLOCK canClock)
         }
         break;
 
+        case (MCP_12MHZ):
+        switch (canSpeed)
+        {
+            case (CAN_5KBPS):                                               //   5KBPS
+            cfg1 = MCP_12MHz_5kBPS_CFG1;
+            cfg2 = MCP_12MHz_5kBPS_CFG2;
+            cfg3 = MCP_12MHz_5kBPS_CFG3;
+            break;
+
+            case (CAN_10KBPS):                                              //  10KBPS
+            cfg1 = MCP_12MHz_10kBPS_CFG1;
+            cfg2 = MCP_12MHz_10kBPS_CFG2;
+            cfg3 = MCP_12MHz_10kBPS_CFG3;
+            break;
+
+            case (CAN_20KBPS):                                              //  20KBPS
+            cfg1 = MCP_12MHz_20kBPS_CFG1;
+            cfg2 = MCP_12MHz_20kBPS_CFG2;
+            cfg3 = MCP_12MHz_20kBPS_CFG3;
+            break;
+
+            case (CAN_31K25BPS):                                            //  31.25KBPS
+            cfg1 = MCP_12MHz_31k25BPS_CFG1;
+            cfg2 = MCP_12MHz_31k25BPS_CFG2;
+            cfg3 = MCP_12MHz_31k25BPS_CFG3;
+            break;
+
+            case (CAN_33KBPS):                                              //  33.333KBPS
+            cfg1 = MCP_12MHz_33k3BPS_CFG1;
+            cfg2 = MCP_12MHz_33k3BPS_CFG2;
+            cfg3 = MCP_12MHz_33k3BPS_CFG3;
+            break;
+
+            case (CAN_40KBPS):                                              //  40Kbps
+            cfg1 = MCP_12MHz_40kBPS_CFG1;
+            cfg2 = MCP_12MHz_40kBPS_CFG2;
+            cfg3 = MCP_12MHz_40kBPS_CFG3;
+            break;
+
+            case (CAN_50KBPS):                                              //  50Kbps
+            cfg1 = MCP_12MHz_50kBPS_CFG1;
+            cfg2 = MCP_12MHz_50kBPS_CFG2;
+            cfg3 = MCP_12MHz_50kBPS_CFG3;
+            break;
+
+            case (CAN_80KBPS):                                              //  80Kbps
+            cfg1 = MCP_12MHz_80kBPS_CFG1;
+            cfg2 = MCP_12MHz_80kBPS_CFG2;
+            cfg3 = MCP_12MHz_80kBPS_CFG3;
+            break;
+
+            case (CAN_100KBPS):                                             // 100Kbps
+            cfg1 = MCP_12MHz_100kBPS_CFG1;
+            cfg2 = MCP_12MHz_100kBPS_CFG2;
+            cfg3 = MCP_12MHz_100kBPS_CFG3;
+            break;
+
+            case (CAN_125KBPS):                                             // 125Kbps
+            cfg1 = MCP_12MHz_125kBPS_CFG1;
+            cfg2 = MCP_12MHz_125kBPS_CFG2;
+            cfg3 = MCP_12MHz_125kBPS_CFG3;
+            break;
+
+            case (CAN_200KBPS):                                             // 200Kbps
+            cfg1 = MCP_12MHz_200kBPS_CFG1;
+            cfg2 = MCP_12MHz_200kBPS_CFG2;
+            cfg3 = MCP_12MHz_200kBPS_CFG3;
+            break;
+
+            case (CAN_250KBPS):                                             // 250Kbps
+            cfg1 = MCP_12MHz_250kBPS_CFG1;
+            cfg2 = MCP_12MHz_250kBPS_CFG2;
+            cfg3 = MCP_12MHz_250kBPS_CFG3;
+            break;
+
+            case (CAN_500KBPS):                                             // 500Kbps
+            cfg1 = MCP_12MHz_500kBPS_CFG1;
+            cfg2 = MCP_12MHz_500kBPS_CFG2;
+            cfg3 = MCP_12MHz_500kBPS_CFG3;
+            break;
+
+            case (CAN_1000KBPS):                                            //   1Mbps
+            cfg1 = MCP_12MHz_1000kBPS_CFG1;
+            cfg2 = MCP_12MHz_1000kBPS_CFG2;
+            cfg3 = MCP_12MHz_1000kBPS_CFG3;
+            break;
+
+            default:
+            set = 0;
+            break;
+        }
+        break;
+
         case (MCP_16MHZ):
         switch (canSpeed)
         {
