@@ -1,4 +1,6 @@
-#include "Arduino.h"
+#include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "mcp2515.h"
 
 const struct MCP2515::TXBn_REGS MCP2515::TXB[MCP2515::N_TXBUFFERS] = {
@@ -12,39 +14,29 @@ const struct MCP2515::RXBn_REGS MCP2515::RXB[N_RXBUFFERS] = {
     {MCP_RXB1CTRL, MCP_RXB1SIDH, MCP_RXB1DATA, CANINTF_RX1IF}
 };
 
-MCP2515::MCP2515(const uint8_t _CS, const uint32_t _SPI_CLOCK, SPIClass * _SPI)
+MCP2515::MCP2515(spi_device_handle_t *s)
 {
-    if (_SPI != nullptr) {
-        SPIn = _SPI;
-    }
-    else {
-        SPIn = &SPI;
-        SPIn->begin();
-    }
-
-    SPICS = _CS;
-    SPI_CLOCK = _SPI_CLOCK;
-    pinMode(SPICS, OUTPUT);
-    digitalWrite(SPICS, HIGH);
-}
-
-void MCP2515::startSPI() {
-    SPIn->beginTransaction(SPISettings(SPI_CLOCK, MSBFIRST, SPI_MODE0));
-    digitalWrite(SPICS, LOW);
-}
-
-void MCP2515::endSPI() {
-    digitalWrite(SPICS, HIGH);
-    SPIn->endTransaction();
+    spi = s;
 }
 
 MCP2515::ERROR MCP2515::reset(void)
 {
-    startSPI();
-    SPIn->transfer(INSTRUCTION_RESET);
-    endSPI();
+    // startSPI();
+    // SPI.transfer(INSTRUCTION_RESET);
+    // endSPI();
 
-    delay(10);
+    spi_transaction_t trans = {};
+
+    trans.length = 8;
+    trans.flags = SPI_TRANS_USE_RXDATA | SPI_TRANS_USE_TXDATA;
+    trans.tx_data[0] = INSTRUCTION_RESET;
+
+    esp_err_t ret = spi_device_transmit(*spi, &trans);
+    if (ret != ESP_OK) {
+        printf("spi_device_transmit failed\n");
+    }
+
+    vTaskDelay(10 / portTICK_RATE_MS);
 
     uint8_t zeros[14];
     memset(zeros, 0, sizeof(zeros));
@@ -91,65 +83,162 @@ MCP2515::ERROR MCP2515::reset(void)
 
 uint8_t MCP2515::readRegister(const REGISTER reg)
 {
-    startSPI();
-    SPIn->transfer(INSTRUCTION_READ);
-    SPIn->transfer(reg);
-    uint8_t ret = SPIn->transfer(0x00);
-    endSPI();
+    // startSPI();
+    // SPI.transfer(INSTRUCTION_READ);
+    // SPI.transfer(reg);
+    // uint8_t ret = SPI.transfer(0x00);
+    // endSPI();
+    //
+    // return ret;
 
-    return ret;
+    spi_transaction_t trans = {};
+
+    trans.length = 24;
+    trans.flags = SPI_TRANS_USE_RXDATA | SPI_TRANS_USE_TXDATA;
+    trans.tx_data[0] = INSTRUCTION_READ;
+    trans.tx_data[1] = reg;
+    trans.tx_data[2] = 0x00;
+
+    esp_err_t ret = spi_device_transmit(*spi, &trans);
+    if (ret != ESP_OK) {
+        printf("spi_device_transmit failed\n");
+    }
+
+    return trans.rx_data[2];
 }
 
 void MCP2515::readRegisters(const REGISTER reg, uint8_t values[], const uint8_t n)
 {
-    startSPI();
-    SPIn->transfer(INSTRUCTION_READ);
-    SPIn->transfer(reg);
-    // mcp2515 has auto-increment of address-pointer
-    for (uint8_t i=0; i<n; i++) {
-        values[i] = SPIn->transfer(0x00);
+    // startSPI();
+    // SPI.transfer(INSTRUCTION_READ);
+    // SPI.transfer(reg);
+    // // mcp2515 has auto-increment of address-pointer
+    // for (uint8_t i=0; i<n; i++) {
+    //     values[i] = SPI.transfer(0x00);
+    // }
+    // endSPI();
+
+    uint8_t rx_data[n + 2];
+    uint8_t tx_data[n + 2];
+
+    tx_data[0] = INSTRUCTION_READ;
+    tx_data[1] = reg;
+
+    spi_transaction_t trans = {};
+
+    trans.length = ((2 + ((size_t)n)) * 8);
+    trans.rx_buffer = rx_data;
+    trans.tx_buffer = tx_data;
+
+
+    esp_err_t ret = spi_device_transmit(*spi, &trans);
+    if (ret != ESP_OK) {
+        printf("spi_device_transmit failed\n");
     }
-    endSPI();
+
+    for (uint8_t i = 0; i < n; i++) {
+        values[i] = rx_data[i+2];
+    }
 }
 
 void MCP2515::setRegister(const REGISTER reg, const uint8_t value)
 {
-    startSPI();
-    SPIn->transfer(INSTRUCTION_WRITE);
-    SPIn->transfer(reg);
-    SPIn->transfer(value);
-    endSPI();
+    // startSPI();
+    // SPI.transfer(INSTRUCTION_WRITE);
+    // SPI.transfer(reg);
+    // SPI.transfer(value);
+    // endSPI();
+
+    spi_transaction_t trans = {};
+    trans.length = 24;
+    trans.flags = SPI_TRANS_USE_RXDATA | SPI_TRANS_USE_TXDATA;
+    trans.tx_data[0] = INSTRUCTION_WRITE;
+    trans.tx_data[1] = reg;
+    trans.tx_data[2] = value;
+
+    esp_err_t ret = spi_device_transmit(*spi, &trans);
+    if (ret != ESP_OK) {
+        printf("spi_device_transmit failed\n");
+    }
 }
 
 void MCP2515::setRegisters(const REGISTER reg, const uint8_t values[], const uint8_t n)
 {
-    startSPI();
-    SPIn->transfer(INSTRUCTION_WRITE);
-    SPIn->transfer(reg);
+    // startSPI();
+    // SPI.transfer(INSTRUCTION_WRITE);
+    // SPI.transfer(reg);
+    // for (uint8_t i=0; i<n; i++) {
+    //     SPI.transfer(values[i]);
+    // }
+    // endSPI();
+
+    uint8_t data[n + 2];
+
+    data[0] = INSTRUCTION_WRITE;
+    data[1] = reg;
+
     for (uint8_t i=0; i<n; i++) {
-        SPIn->transfer(values[i]);
+        data[i+2] = values[i];
     }
-    endSPI();
+
+    spi_transaction_t trans = {};
+
+    trans.length = ((2 + ((size_t)n)) * 8);
+    trans.tx_buffer = data;
+
+    esp_err_t ret = spi_device_transmit(*spi, &trans);
+    if (ret != ESP_OK) {
+        printf("spi_device_transmit failed\n");
+    }
 }
 
 void MCP2515::modifyRegister(const REGISTER reg, const uint8_t mask, const uint8_t data)
 {
-    startSPI();
-    SPIn->transfer(INSTRUCTION_BITMOD);
-    SPIn->transfer(reg);
-    SPIn->transfer(mask);
-    SPIn->transfer(data);
-    endSPI();
+    // startSPI();
+    // SPI.transfer(INSTRUCTION_BITMOD);
+    // SPI.transfer(reg);
+    // SPI.transfer(mask);
+    // SPI.transfer(data);
+    // endSPI();
+
+    spi_transaction_t trans = {};
+
+    trans.length = 32;
+    trans.flags = SPI_TRANS_USE_RXDATA | SPI_TRANS_USE_TXDATA;
+    trans.tx_data[0] = INSTRUCTION_BITMOD;
+    trans.tx_data[1] = reg;
+    trans.tx_data[2] = mask;
+    trans.tx_data[3] = data;
+
+    esp_err_t ret = spi_device_transmit(*spi, &trans);
+    if (ret != ESP_OK) {
+        printf("spi_device_transmit failed\n");
+    }
 }
 
 uint8_t MCP2515::getStatus(void)
 {
-    startSPI();
-    SPIn->transfer(INSTRUCTION_READ_STATUS);
-    uint8_t i = SPIn->transfer(0x00);
-    endSPI();
+    // startSPI();
+    // SPI.transfer(INSTRUCTION_READ_STATUS);
+    // uint8_t i = SPI.transfer(0x00);
+    // endSPI();
+    //
+    // return i;
 
-    return i;
+    spi_transaction_t trans = {};
+
+    trans.length = 16;
+    trans.flags = SPI_TRANS_USE_RXDATA | SPI_TRANS_USE_TXDATA;
+    trans.tx_data[0] = INSTRUCTION_READ_STATUS;
+    trans.tx_data[1] = 0x00;
+
+
+    esp_err_t ret = spi_device_transmit(*spi, &trans);
+    if (ret != ESP_OK) {
+        printf("spi_device_transmit failed\n");
+    }
+
+    return trans.rx_data[1];
 }
 
 MCP2515::ERROR MCP2515::setConfigMode()
@@ -177,18 +266,13 @@ MCP2515::ERROR MCP2515::setNormalMode()
     return setMode(CANCTRL_REQOP_NORMAL);
 }
 
-MCP2515::ERROR MCP2515::setNormalOneShotMode()
-{
-    return setMode(CANCTRL_REQOP_OSM);
-}
-
 MCP2515::ERROR MCP2515::setMode(const CANCTRL_REQOP_MODE mode)
 {
-    modifyRegister(MCP_CANCTRL, CANCTRL_REQOP | CANCTRL_OSM, mode);
+    modifyRegister(MCP_CANCTRL, CANCTRL_REQOP, mode);
 
-    unsigned long endTime = millis() + 10;
     bool modeMatch = false;
-    while (millis() < endTime) {
+
+    for (int i = 0; i < 10; i++) {
         uint8_t newmode = readRegister(MCP_CANSTAT);
         newmode &= CANSTAT_OPMOD;
 
@@ -197,6 +281,8 @@ MCP2515::ERROR MCP2515::setMode(const CANCTRL_REQOP_MODE mode)
         if (modeMatch) {
             break;
         }
+
+        vTaskDelay(10 / portTICK_RATE_MS);
     }
 
     return modeMatch ? ERROR_OK : ERROR_FAIL;
@@ -312,99 +398,6 @@ MCP2515::ERROR MCP2515::setBitrate(const CAN_SPEED canSpeed, CAN_CLOCK canClock)
         }
         break;
 
-        case (MCP_12MHZ):
-        switch (canSpeed)
-        {
-            case (CAN_5KBPS):                                               //   5KBPS
-            cfg1 = MCP_12MHz_5kBPS_CFG1;
-            cfg2 = MCP_12MHz_5kBPS_CFG2;
-            cfg3 = MCP_12MHz_5kBPS_CFG3;
-            break;
-
-            case (CAN_10KBPS):                                              //  10KBPS
-            cfg1 = MCP_12MHz_10kBPS_CFG1;
-            cfg2 = MCP_12MHz_10kBPS_CFG2;
-            cfg3 = MCP_12MHz_10kBPS_CFG3;
-            break;
-
-            case (CAN_20KBPS):                                              //  20KBPS
-            cfg1 = MCP_12MHz_20kBPS_CFG1;
-            cfg2 = MCP_12MHz_20kBPS_CFG2;
-            cfg3 = MCP_12MHz_20kBPS_CFG3;
-            break;
-
-            case (CAN_31K25BPS):                                            //  31.25KBPS
-            cfg1 = MCP_12MHz_31k25BPS_CFG1;
-            cfg2 = MCP_12MHz_31k25BPS_CFG2;
-            cfg3 = MCP_12MHz_31k25BPS_CFG3;
-            break;
-
-            case (CAN_33KBPS):                                              //  33.333KBPS
-            cfg1 = MCP_12MHz_33k3BPS_CFG1;
-            cfg2 = MCP_12MHz_33k3BPS_CFG2;
-            cfg3 = MCP_12MHz_33k3BPS_CFG3;
-            break;
-
-            case (CAN_40KBPS):                                              //  40Kbps
-            cfg1 = MCP_12MHz_40kBPS_CFG1;
-            cfg2 = MCP_12MHz_40kBPS_CFG2;
-            cfg3 = MCP_12MHz_40kBPS_CFG3;
-            break;
-
-            case (CAN_50KBPS):                                              //  50Kbps
-            cfg1 = MCP_12MHz_50kBPS_CFG1;
-            cfg2 = MCP_12MHz_50kBPS_CFG2;
-            cfg3 = MCP_12MHz_50kBPS_CFG3;
-            break;
-
-            case (CAN_80KBPS):                                              //  80Kbps
-            cfg1 = MCP_12MHz_80kBPS_CFG1;
-            cfg2 = MCP_12MHz_80kBPS_CFG2;
-            cfg3 = MCP_12MHz_80kBPS_CFG3;
-            break;
-
-            case (CAN_100KBPS):                                             // 100Kbps
-            cfg1 = MCP_12MHz_100kBPS_CFG1;
-            cfg2 = MCP_12MHz_100kBPS_CFG2;
-            cfg3 = MCP_12MHz_100kBPS_CFG3;
-            break;
-
-            case (CAN_125KBPS):                                             // 125Kbps
-            cfg1 = MCP_12MHz_125kBPS_CFG1;
-            cfg2 = MCP_12MHz_125kBPS_CFG2;
-            cfg3 = MCP_12MHz_125kBPS_CFG3;
-            break;
-
-            case (CAN_200KBPS):                                             // 200Kbps
-            cfg1 = MCP_12MHz_200kBPS_CFG1;
-            cfg2 = MCP_12MHz_200kBPS_CFG2;
-            cfg3 = MCP_12MHz_200kBPS_CFG3;
-            break;
-
-            case (CAN_250KBPS):                                             // 250Kbps
-            cfg1 = MCP_12MHz_250kBPS_CFG1;
-            cfg2 = MCP_12MHz_250kBPS_CFG2;
-            cfg3 = MCP_12MHz_250kBPS_CFG3;
-            break;
-
-            case (CAN_500KBPS):                                             // 500Kbps
-            cfg1 = MCP_12MHz_500kBPS_CFG1;
-            cfg2 = MCP_12MHz_500kBPS_CFG2;
-            cfg3 = MCP_12MHz_500kBPS_CFG3;
-            break;
-
-            case (CAN_1000KBPS):                                            //   1Mbps
-            cfg1 = MCP_12MHz_1000kBPS_CFG1;
-            cfg2 = MCP_12MHz_1000kBPS_CFG2;
-            cfg3 = MCP_12MHz_1000kBPS_CFG3;
-            break;
-
-            default:
-            set = 0;
-            break;
-        }
-        break;
-
         case (MCP_16MHZ):
         switch (canSpeed)
         {
@@ -454,12 +447,6 @@ MCP2515::ERROR MCP2515::setBitrate(const CAN_SPEED canSpeed, CAN_CLOCK canClock)
             cfg1 = MCP_16MHz_83k3BPS_CFG1;
             cfg2 = MCP_16MHz_83k3BPS_CFG2;
             cfg3 = MCP_16MHz_83k3BPS_CFG3;
-            break;
-
-            case (CAN_95KBPS):                                              //  95Kbps
-            cfg1 = MCP_16MHz_95kBPS_CFG1;
-            cfg2 = MCP_16MHz_95kBPS_CFG2;
-            cfg3 = MCP_16MHz_95kBPS_CFG3;
             break;
 
             case (CAN_100KBPS):                                             // 100Kbps
@@ -643,7 +630,7 @@ MCP2515::ERROR MCP2515::setFilterMask(const MASK mask, const bool ext, const uin
     if (res != ERROR_OK) {
         return res;
     }
-    
+
     uint8_t tbufdata[4];
     prepareId(tbufdata, ext, ulData);
 
@@ -656,7 +643,7 @@ MCP2515::ERROR MCP2515::setFilterMask(const MASK mask, const bool ext, const uin
     }
 
     setRegisters(reg, tbufdata, 4);
-    
+
     return ERROR_OK;
 }
 
@@ -816,11 +803,6 @@ uint8_t MCP2515::getErrorFlags(void)
     return readRegister(MCP_EFLG);
 }
 
-uint8_t MCP2515::getControlRegister(void) 
-{
-    return readRegister(MCP_CANCTRL);
-}
-
 void MCP2515::clearRXnOVRFlags(void)
 {
 	modifyRegister(MCP_EFLG, EFLG_RX0OVR | EFLG_RX1OVR, 0);
@@ -854,7 +836,7 @@ void MCP2515::clearRXnOVR(void)
 		clearInterrupts();
 		//modifyRegister(MCP_CANINTF, CANINTF_ERRIF, 0);
 	}
-	
+
 }
 
 void MCP2515::clearMERR()
@@ -869,14 +851,4 @@ void MCP2515::clearERRIF()
     //modifyRegister(MCP_EFLG, EFLG_RX0OVR | EFLG_RX1OVR, 0);
     //clearInterrupts();
     modifyRegister(MCP_CANINTF, CANINTF_ERRIF, 0);
-}
-
-uint8_t MCP2515::errorCountRX(void)                             
-{
-    return readRegister(MCP_REC);
-}
-
-uint8_t MCP2515::errorCountTX(void)                             
-{
-    return readRegister(MCP_TEC);
 }
