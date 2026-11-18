@@ -1,7 +1,6 @@
 #ifndef _MCP2515_H_
 #define _MCP2515_H_
-
-#include <SPI.h>
+#include "driver/spi_master.h"
 #include "can.h"
 
 /*
@@ -90,17 +89,13 @@
 #define MCP_16MHz_100kBPS_CFG2 (0xFA)
 #define MCP_16MHz_100kBPS_CFG3 (0x87)
 
-#define MCP_16MHz_95kBPS_CFG1 (0x03)
-#define MCP_16MHz_95kBPS_CFG2 (0xAD)
-#define MCP_16MHz_95kBPS_CFG3 (0x07)
+#define MCP_16MHz_80kBPS_CFG1 (0x03)
+#define MCP_16MHz_80kBPS_CFG2 (0xFF)
+#define MCP_16MHz_80kBPS_CFG3 (0x87)
 
 #define MCP_16MHz_83k3BPS_CFG1 (0x03)
 #define MCP_16MHz_83k3BPS_CFG2 (0xBE)
 #define MCP_16MHz_83k3BPS_CFG3 (0x07)
-
-#define MCP_16MHz_80kBPS_CFG1 (0x03)
-#define MCP_16MHz_80kBPS_CFG2 (0xFF)
-#define MCP_16MHz_80kBPS_CFG3 (0x87)
 
 #define MCP_16MHz_50kBPS_CFG1 (0x07)
 #define MCP_16MHz_50kBPS_CFG2 (0xFA)
@@ -173,15 +168,10 @@
 #define MCP_20MHz_33k3BPS_CFG2 (0xFF)
 #define MCP_20MHz_33k3BPS_CFG3 (0x87)
 
-#define MCP_12MHz_1000kBPS_CFG1 (0x00)
-#define MCP_12MHz_1000kBPS_CFG2 (0x88)
-#define MCP_12MHz_1000kBPS_CFG3 (0x01)
-
 enum CAN_CLOCK {
     MCP_20MHZ,
     MCP_16MHZ,
-    MCP_8MHZ,
-    MCP_12MHZ
+    MCP_8MHZ
 };
 
 enum CAN_SPEED {
@@ -279,7 +269,6 @@ class MCP2515
 
         enum /*class*/ CANCTRL_REQOP_MODE : uint8_t {
             CANCTRL_REQOP_NORMAL     = 0x00,
-            CANCTRL_REQOP_OSM        = 0x08,
             CANCTRL_REQOP_SLEEP      = 0x20,
             CANCTRL_REQOP_LOOPBACK   = 0x40,
             CANCTRL_REQOP_LISTENONLY = 0x60,
@@ -434,7 +423,7 @@ class MCP2515
             MCP_RXB1DATA = 0x76
         };
 
-        static const uint32_t DEFAULT_SPI_CLOCK = 10000000; // 10MHz
+        static const uint32_t SPI_CLOCK = 10000000; // 10MHz
 
         static const int N_TXBUFFERS = 3;
         static const int N_RXBUFFERS = 2;
@@ -452,15 +441,9 @@ class MCP2515
             CANINTF  CANINTF_RXnIF;
         } RXB[N_RXBUFFERS];
 
-        uint8_t SPICS;
-        uint32_t SPI_CLOCK;
-        SPIClass * SPIn;
+        spi_device_handle_t *spi;
 
     private:
-
-        void startSPI();
-        void endSPI();
-
         ERROR setMode(const CANCTRL_REQOP_MODE mode);
 
         uint8_t readRegister(const REGISTER reg);
@@ -470,16 +453,15 @@ class MCP2515
         void modifyRegister(const REGISTER reg, const uint8_t mask, const uint8_t data);
 
         void prepareId(uint8_t *buffer, const bool ext, const uint32_t id);
-    
+
     public:
-        MCP2515(const uint8_t _CS, const uint32_t _SPI_CLOCK = DEFAULT_SPI_CLOCK, SPIClass * _SPI = nullptr);
+        MCP2515(spi_device_handle_t *s);
         ERROR reset(void);
         ERROR setConfigMode();
         ERROR setListenOnlyMode();
         ERROR setSleepMode();
         ERROR setLoopbackMode();
         ERROR setNormalMode();
-        ERROR setNormalOneShotMode();
         ERROR setClkOut(const CAN_CLKOUT divisor);
         ERROR setBitrate(const CAN_SPEED canSpeed);
         ERROR setBitrate(const CAN_SPEED canSpeed, const CAN_CLOCK canClock);
@@ -492,7 +474,6 @@ class MCP2515
         bool checkReceive(void);
         bool checkError(void);
         uint8_t getErrorFlags(void);
-        uint8_t getControlRegister(void);
         void clearRXnOVRFlags(void);
         uint8_t getInterrupts(void);
         uint8_t getInterruptMask(void);
@@ -502,8 +483,6 @@ class MCP2515
         void clearRXnOVR(void);
         void clearMERR();
         void clearERRIF();
-        uint8_t errorCountRX(void);
-        uint8_t errorCountTX(void);
 };
 
 #endif
